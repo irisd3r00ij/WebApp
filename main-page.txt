@@ -1,0 +1,196 @@
+<!DOCTYPE html> 
+<html> 
+    <head> 
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>Mainpage</title>
+        <script type="text/javascript"> 
+          
+            //de map zelf
+            var map;   
+            //variable voor de map          
+            var myLatlngs= Array(); 
+            var markers= Array(); 
+            
+            // De variable voor het info window. (globale scope) 
+            var    infowindow; 
+
+            // Array met longitude info  
+            var longis=###LONGIS###; 
+            // Array met latitude info  
+            var latis = ###LATIS###; 
+            // Array met titels 
+            var titles=###TITLES###; 
+
+            function initMap() { 
+                // maak een infowindow aan   
+                infowindow = new google.maps.InfoWindow();             
+                    
+                // Start de functie voor de kaart en markers en stuur start coordinaten mee   
+                initialize(51.584294,4.795296); 
+            } 
+            
+            //deze functie zorgt ervoor dat als iemand een quest heeft voltooid ze de juiste eind text te zien krijgen 
+            function myFunction() {
+                var x = document.getElementById("extra_info");
+                if (x.style.display === "block") {
+                    x.style.display = "none";
+                } else {
+                    x.style.display = "block";
+                }
+            }
+
+            //deze functie zorgt ervoor dat het extra window met de eindtext sluit wanneer iemand naar een andere quest gaat
+            function reset() {
+                var x = document.getElementById("extra_info");
+                //x.style.display = "block";
+                x.style.display = "none";
+                
+            }
+
+            function initialize(lat,lon) { 
+            
+                // Opties voor de kaart, de coordinaten van punt 1 worden het middelpunt 
+                var myLatlngCenter = new google.maps.LatLng(lat,lon); 
+
+                //variable om dalijk te gebruiken
+                var myOptions = { 
+                    zoom: 13, 
+                    center:myLatlngCenter,  // centreer kaart op punt 1 
+                    mapTypeId: google.maps.MapTypeId.ROADMAP 
+                } 
+
+                //maakt een nieuwe kaart aan met de ingestelde opties 
+                map = new google.maps.Map(document.getElementById("map_canvas"), myOptions); 
+
+                //Lus voor het tonen van alle markers met infowindows 
+                for (var i=0; i<longis.length;i++) { 
+                    
+                    // Instellen coordinaten punt i 
+                    myLatlngs[i] = new google.maps.LatLng(latis[i],longis[i]); 
+
+                    // Plaats een marker op de opgegeven coordinaten van punt i 
+                    markers[i] = new google.maps.Marker({ 
+                        position: myLatlngs[i],  
+                        map: map, 
+                        title: titles[i] 
+                    });   
+
+                    
+                    // een fuctie wordt geactiveerd en een parameter wordt meegegeven zodat de functie met de juiste marker werkt
+                    addMarkerClickHandler(i); 
+                } 
+            } 
+
+            // Functie voor het toevoegen van een infowindow bij een marker  
+            function addMarkerClickHandler(currentIndex) { 
+                google.maps.event.addListener(markers[currentIndex], 'click', function () { 
+                    
+                    //als de window met de eindtext nog open staat wordt deze hier gesloten
+                    reset();
+
+                    
+
+                    // vanaf hier wordt er gecommuniceerd met de Habitica API...
+                    var request = new XMLHttpRequest()
+                    // Open a new connection, using the GET request on the URL endpoint
+                    request.open('GET', 'https://habitica.com/api/v3/content', true)
+
+                    request.onload = function () 
+                    {                            
+                        //vertaald info van JSON naar javascript objects
+                        var response = JSON.parse(this.response);
+                        //zet de relevante informatie in een variable
+                        var quests = response.data.quests;
+                        
+                        if (request.status >= 200 && request.status < 400) 
+                        {
+                            Object.keys(quests).forEach(function(key){
+
+                                //zorgt dat de key bekend is van de aangeklikte marker, zodat er naar het juiste item in de Habitica API gezocht kan worden 
+                                var currentKey = titles[currentIndex];
+
+                                //zorgt dat er alleen gebruik gemaakt wordt van het juiste item in de code die volgt
+                                if(currentKey == quests[key].key){
+                                    
+                                    //de variablen halen de relevante informatie op
+                                    var text = quests[key].text;
+                                    var notes = quests[key].notes;
+                                    var value = quests[key].value;
+                                    var completion = quests[key].completion;
+
+                                    // Update de content van het infowindow met de content behorende bij de gekozen marker 
+                                    infowindow.setContent
+                                        ('<div class="titel">' + text + '</div>' + 
+                                        notes + '<br> <br>' +
+                                        '<button onclick="myFunction()">Completed!</button>'); 
+                                    
+                                    // Open het infowindow bij de gekozen marker 
+                                    infowindow.open(map, markers[currentIndex]); 
+                                    
+                                    //vult de elementen voor de window met eindtext in de html met de juiste text uit de Habitica API
+                                    document.getElementById('titel').innerHTML = text;
+                                    document.getElementById('complete').innerHTML = completion;
+                                    
+                                    //zorgt dat de beloning grammaticaal correct wordt genoemd als deze aanwezig is
+                                    if (value == 0)
+                                    {
+                                        document.getElementById('earnings').innerHTML = "Well done!";
+                                    } 
+                                    else if (value == 1)
+                                    {
+                                        document.getElementById('earnings').innerHTML = "You have earned " + value + " gem! <br> <br> Well done!";
+                                    }
+                                    else 
+                                    {
+                                        document.getElementById('earnings').innerHTML = "You have earned " + value + " gems! <br> <br> Well done!";
+                                    }
+
+                                    //zorgt dat bij de paar grotere items de tekst kleiner wordt gemaakt zodat deze in de window past
+                                    var y = document.getElementById("complete");
+
+                                    if (currentKey == 'burnout' || currentKey == 'stressbeast'){
+                                        y.style.fontSize = "12px";
+                                    }
+                                    else {
+                                        y.style.fontSize = "14px";
+                                    }
+                                }
+                                
+                            })
+                        } 
+                        else 
+                        {
+                            //als er een probleem is met de informatie die terug komt van de Habitica API wordt er een foutmelding gegeven
+                            console.log('error')
+                        }
+                    }
+    
+                    // Send request
+                    request.send()
+                    
+                }); 
+            }      
+        </script> 
+        <link rel="stylesheet" type="text/css" href="media.css" />
+    </head> 
+    <body> 
+        <div class="titel">
+            Pick a Quest!
+        </div> 
+
+        <div id="extra_info"> 
+            <div id="titel"></div>
+            <br/>
+            <div id="complete"></div>
+            <br/>
+            <div id="earnings"></div>
+        </div>
+
+        <div id="map_canvas">  
+        </div>      
+
+        <script async defer  
+            src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBI4kw6ycmxT2iBK4ELkdHdKy8ysE2fa58&callback=initMap">
+        </script>     
+    </body> 
+</html>
